@@ -4,12 +4,10 @@ option go_package = "github.com/savo92/playground-go-grpc/chat/pbuf";
 
 package pbuf;
 
-// The greeting service definition.
 service Chat {
   rpc RouteChat(stream Message) returns (stream Message) {}
 }
 
-// The request message containing the user's name.
 message Message {
   string body = 1;
   string author = 2;
