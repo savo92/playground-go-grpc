@@ -22,7 +22,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('shortener/go.sum') }}
+        key: ${{ runner.os }}-go-${{ hashFiles('chat/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
 
