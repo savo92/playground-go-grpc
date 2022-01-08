@@ -12,10 +12,10 @@ import (
 	"os/signal"
 	"strings"
 
-	pb "github.com/savo92/playground-go-grpc/chat/pbuf"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+
+	"github.com/savo92/playground-go-grpc/chat/client"
+	pb "github.com/savo92/playground-go-grpc/chat/pbuf"
 )
 
 var (
@@ -23,52 +23,33 @@ var (
 )
 
 var (
-	author string
-	conn   *grpc.ClientConn
-	client pb.ChatClient
-)
-
-var (
-	ErrQuit = errors.New("EOF")
+	errQuit = errors.New("EOF")
 )
 
 func main() {
-	if err := setup(); err != nil {
-		log.Fatalf("Error from setup: %s", err)
-	}
-
-	defer func() {
-		if err := teardown(); err != nil {
-			log.Fatalf("Error from teardown: %s", err)
-		}
-	}()
-
 	if err := run(); err != nil {
-		log.Fatalf("Error from run: %s", err)
+		log.Fatal(err)
 	}
-}
-
-func setup() error {
-	var err error
-	credentials := grpc.WithTransportCredentials(insecure.NewCredentials())
-	if conn, err = grpc.Dial(*serverAddr, credentials); err != nil {
-		return err
-	}
-
-	client = pb.NewChatClient(conn)
-
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Enter your name: ")
-	text, _ := reader.ReadString('\n')
-	author = strings.Replace(text, "\n", "", -1)
-
-	return nil
 }
 
 func run() error {
+	flag.Parse()
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print("Enter your name: ")
+	text, err := reader.ReadString('\n')
+	if err != nil {
+		return err
+	}
+	author := strings.Replace(text, "\n", "", -1)
+
+	c, err := client.NewClient(*serverAddr)
+	if err != nil {
+		return err
+	}
+
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
-	stream, err := client.RouteChat(ctx)
+	stream, err := c.RouteChat(ctx)
 	if err != nil {
 		return fmt.Errorf("stream acquisition: %w", err)
 	}
@@ -84,7 +65,7 @@ func run() error {
 		for {
 			message, err := stream.Recv()
 			if errors.Is(err, io.EOF) {
-				return ErrQuit
+				return errQuit
 			}
 			if err != nil {
 				return fmt.Errorf("read error: %w", err)
@@ -109,7 +90,7 @@ func run() error {
 
 			switch message {
 			case "q":
-				return ErrQuit
+				return errQuit
 			case "":
 				// do not send empty messages.
 			default:
@@ -129,13 +110,9 @@ func run() error {
 		cancelFunc()
 	}()
 
-	if err := g.Wait(); !errors.Is(err, ErrQuit) {
+	if err := g.Wait(); !errors.Is(err, errQuit) {
 		return err
 	}
 
 	return nil
-}
-
-func teardown() error {
-	return conn.Close()
 }
