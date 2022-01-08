@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/signal"
 	"strings"
 
 	pb "github.com/savo92/playground-go-grpc/chat/pbuf"
@@ -25,6 +26,10 @@ var (
 	author string
 	conn   *grpc.ClientConn
 	client pb.ChatClient
+)
+
+var (
+	ErrQuit = errors.New("EOF")
 )
 
 func main() {
@@ -61,12 +66,10 @@ func setup() error {
 }
 
 func run() error {
-	sigint := make(chan interface{}, 1)
 	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
 	stream, err := client.RouteChat(ctx)
 	if err != nil {
-		cancelFunc()
-
 		return fmt.Errorf("stream acquisition: %w", err)
 	}
 	defer func() {
@@ -74,13 +77,14 @@ func run() error {
 			log.Printf("Failed to CloseSend: %v", err)
 		}
 	}()
-	g, _ := errgroup.WithContext(ctx)
+	sigint := make(chan os.Signal, 1)
+	g := errgroup.Group{}
 
 	g.Go(func() error {
 		for {
 			message, err := stream.Recv()
 			if errors.Is(err, io.EOF) {
-				return nil
+				return ErrQuit
 			}
 			if err != nil {
 				return fmt.Errorf("read error: %w", err)
@@ -105,10 +109,9 @@ func run() error {
 
 			switch message {
 			case "q":
-				sigint <- struct{}{}
-
-				return nil
+				return ErrQuit
 			case "":
+				// do not send empty messages.
 			default:
 				if err := stream.Send(&pb.Message{
 					Author: author,
@@ -121,12 +124,16 @@ func run() error {
 	})
 
 	go func() {
+		signal.Notify(sigint, os.Interrupt)
 		<-sigint
-
 		cancelFunc()
 	}()
 
-	return g.Wait()
+	if err := g.Wait(); !errors.Is(err, ErrQuit) {
+		return err
+	}
+
+	return nil
 }
 
 func teardown() error {

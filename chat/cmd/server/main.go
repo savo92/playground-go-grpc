@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -11,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"time"
 
 	pb "github.com/savo92/playground-go-grpc/chat/pbuf"
 	"golang.org/x/sync/errgroup"
@@ -26,6 +26,10 @@ var (
 	gRPCServer *grpc.Server
 )
 
+var (
+	ErrQuit = errors.New("EOF")
+)
+
 type chatServer struct {
 	pb.UnimplementedChatServer
 
@@ -34,33 +38,33 @@ type chatServer struct {
 }
 
 func (s *chatServer) RouteChat(stream pb.Chat_RouteChatServer) error {
-	g, _ := errgroup.WithContext(context.Background())
+	g := errgroup.Group{}
 
 	g.Go(func() error {
 		for {
-			in, err := stream.Recv()
+			message, err := stream.Recv()
 			if errors.Is(err, io.EOF) {
-				return nil
+				return ErrQuit
 			}
 			if err != nil {
 				return err
 			}
 
 			s.mu.Lock()
-			s.chatLog = append(s.chatLog, in)
+			s.chatLog = append(s.chatLog, message)
 			s.mu.Unlock()
 		}
 	})
 
 	g.Go(func() error {
-		mp := 0
+		nextMessageI := 0
 		for {
 			var newMessages *[]*pb.Message
 			s.mu.RLock()
 			chatLength := len(s.chatLog)
-			if delta := chatLength - mp; delta > 0 {
+			if delta := chatLength - nextMessageI; delta > 0 {
 				newMsgs := make([]*pb.Message, delta)
-				copy(newMsgs, s.chatLog[mp:])
+				copy(newMsgs, s.chatLog[nextMessageI:])
 				newMessages = &newMsgs
 			}
 			s.mu.RUnlock()
@@ -71,12 +75,16 @@ func (s *chatServer) RouteChat(stream pb.Chat_RouteChatServer) error {
 						return err
 					}
 				}
-				mp = chatLength
+				nextMessageI = chatLength
 			}
 		}
 	})
 
-	return g.Wait()
+	if err := g.Wait(); !errors.Is(err, ErrQuit) {
+		return err
+	}
+
+	return nil
 }
 
 func main() {
@@ -93,6 +101,15 @@ func main() {
 		sigint := make(chan os.Signal, 1)
 		signal.Notify(sigint, os.Interrupt)
 		<-sigint
+		log.Println("SIGINT received, shutting down")
+
+		go func() {
+			ticker := time.NewTicker(10 * time.Second)
+			<-ticker.C
+			log.Println("Graceful shutdown timed out, killing")
+			ticker.Stop()
+			gRPCServer.Stop()
+		}()
 
 		gRPCServer.GracefulStop()
 	}()
@@ -120,5 +137,9 @@ func run() error {
 }
 
 func teardown() error {
-	return listener.Close()
+	if err := listener.Close(); !errors.Is(err, net.ErrClosed) {
+		return err
+	}
+
+	return nil
 }
