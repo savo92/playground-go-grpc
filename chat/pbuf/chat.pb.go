@@ -9,6 +9,7 @@ package pbuf
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	reflect "reflect"
 	sync "sync"
 )
@@ -20,18 +21,115 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// The request message containing the user's name.
-type Message struct {
+type ClientMessage_ClientCommand int32
+
+const (
+	ClientMessage_Helo         ClientMessage_ClientCommand = 0
+	ClientMessage_Quit         ClientMessage_ClientCommand = 1
+	ClientMessage_WriteMessage ClientMessage_ClientCommand = 2
+)
+
+// Enum value maps for ClientMessage_ClientCommand.
+var (
+	ClientMessage_ClientCommand_name = map[int32]string{
+		0: "Helo",
+		1: "Quit",
+		2: "WriteMessage",
+	}
+	ClientMessage_ClientCommand_value = map[string]int32{
+		"Helo":         0,
+		"Quit":         1,
+		"WriteMessage": 2,
+	}
+)
+
+func (x ClientMessage_ClientCommand) Enum() *ClientMessage_ClientCommand {
+	p := new(ClientMessage_ClientCommand)
+	*p = x
+	return p
+}
+
+func (x ClientMessage_ClientCommand) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ClientMessage_ClientCommand) Descriptor() protoreflect.EnumDescriptor {
+	return file_pbuf_chat_proto_enumTypes[0].Descriptor()
+}
+
+func (ClientMessage_ClientCommand) Type() protoreflect.EnumType {
+	return &file_pbuf_chat_proto_enumTypes[0]
+}
+
+func (x ClientMessage_ClientCommand) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ClientMessage_ClientCommand.Descriptor instead.
+func (ClientMessage_ClientCommand) EnumDescriptor() ([]byte, []int) {
+	return file_pbuf_chat_proto_rawDescGZIP(), []int{0, 0}
+}
+
+type ServerMessage_ServerCommand int32
+
+const (
+	ServerMessage_Shutdown            ServerMessage_ServerCommand = 0
+	ServerMessage_ForwardMessage      ServerMessage_ServerCommand = 1
+	ServerMessage_ConfirmRoomCheckout ServerMessage_ServerCommand = 2
+)
+
+// Enum value maps for ServerMessage_ServerCommand.
+var (
+	ServerMessage_ServerCommand_name = map[int32]string{
+		0: "Shutdown",
+		1: "ForwardMessage",
+		2: "ConfirmRoomCheckout",
+	}
+	ServerMessage_ServerCommand_value = map[string]int32{
+		"Shutdown":            0,
+		"ForwardMessage":      1,
+		"ConfirmRoomCheckout": 2,
+	}
+)
+
+func (x ServerMessage_ServerCommand) Enum() *ServerMessage_ServerCommand {
+	p := new(ServerMessage_ServerCommand)
+	*p = x
+	return p
+}
+
+func (x ServerMessage_ServerCommand) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ServerMessage_ServerCommand) Descriptor() protoreflect.EnumDescriptor {
+	return file_pbuf_chat_proto_enumTypes[1].Descriptor()
+}
+
+func (ServerMessage_ServerCommand) Type() protoreflect.EnumType {
+	return &file_pbuf_chat_proto_enumTypes[1]
+}
+
+func (x ServerMessage_ServerCommand) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ServerMessage_ServerCommand.Descriptor instead.
+func (ServerMessage_ServerCommand) EnumDescriptor() ([]byte, []int) {
+	return file_pbuf_chat_proto_rawDescGZIP(), []int{1, 0}
+}
+
+type ClientMessage struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Body   string `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
-	Author string `protobuf:"bytes,2,opt,name=author,proto3" json:"author,omitempty"`
+	Operation *anypb.Any                  `protobuf:"bytes,1,opt,name=operation,proto3" json:"operation,omitempty"`
+	Command   ClientMessage_ClientCommand `protobuf:"varint,2,opt,name=command,proto3,enum=pbuf.ClientMessage_ClientCommand" json:"command,omitempty"`
 }
 
-func (x *Message) Reset() {
-	*x = Message{}
+func (x *ClientMessage) Reset() {
+	*x = ClientMessage{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_pbuf_chat_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -39,13 +137,13 @@ func (x *Message) Reset() {
 	}
 }
 
-func (x *Message) String() string {
+func (x *ClientMessage) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Message) ProtoMessage() {}
+func (*ClientMessage) ProtoMessage() {}
 
-func (x *Message) ProtoReflect() protoreflect.Message {
+func (x *ClientMessage) ProtoReflect() protoreflect.Message {
 	mi := &file_pbuf_chat_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -57,41 +155,395 @@ func (x *Message) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Message.ProtoReflect.Descriptor instead.
-func (*Message) Descriptor() ([]byte, []int) {
+// Deprecated: Use ClientMessage.ProtoReflect.Descriptor instead.
+func (*ClientMessage) Descriptor() ([]byte, []int) {
 	return file_pbuf_chat_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *Message) GetBody() string {
+func (x *ClientMessage) GetOperation() *anypb.Any {
 	if x != nil {
-		return x.Body
+		return x.Operation
 	}
-	return ""
+	return nil
 }
 
-func (x *Message) GetAuthor() string {
+func (x *ClientMessage) GetCommand() ClientMessage_ClientCommand {
+	if x != nil {
+		return x.Command
+	}
+	return ClientMessage_Helo
+}
+
+type ServerMessage struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Operation *anypb.Any                  `protobuf:"bytes,1,opt,name=operation,proto3" json:"operation,omitempty"`
+	Command   ServerMessage_ServerCommand `protobuf:"varint,2,opt,name=command,proto3,enum=pbuf.ServerMessage_ServerCommand" json:"command,omitempty"`
+}
+
+func (x *ServerMessage) Reset() {
+	*x = ServerMessage{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pbuf_chat_proto_msgTypes[1]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ServerMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerMessage) ProtoMessage() {}
+
+func (x *ServerMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_pbuf_chat_proto_msgTypes[1]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerMessage.ProtoReflect.Descriptor instead.
+func (*ServerMessage) Descriptor() ([]byte, []int) {
+	return file_pbuf_chat_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *ServerMessage) GetOperation() *anypb.Any {
+	if x != nil {
+		return x.Operation
+	}
+	return nil
+}
+
+func (x *ServerMessage) GetCommand() ServerMessage_ServerCommand {
+	if x != nil {
+		return x.Command
+	}
+	return ServerMessage_Shutdown
+}
+
+type ClientMessage_ClientHelo struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Author string `protobuf:"bytes,1,opt,name=author,proto3" json:"author,omitempty"`
+}
+
+func (x *ClientMessage_ClientHelo) Reset() {
+	*x = ClientMessage_ClientHelo{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pbuf_chat_proto_msgTypes[2]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ClientMessage_ClientHelo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientMessage_ClientHelo) ProtoMessage() {}
+
+func (x *ClientMessage_ClientHelo) ProtoReflect() protoreflect.Message {
+	mi := &file_pbuf_chat_proto_msgTypes[2]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientMessage_ClientHelo.ProtoReflect.Descriptor instead.
+func (*ClientMessage_ClientHelo) Descriptor() ([]byte, []int) {
+	return file_pbuf_chat_proto_rawDescGZIP(), []int{0, 0}
+}
+
+func (x *ClientMessage_ClientHelo) GetAuthor() string {
 	if x != nil {
 		return x.Author
 	}
 	return ""
 }
 
+type ClientMessage_ClientQuit struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *ClientMessage_ClientQuit) Reset() {
+	*x = ClientMessage_ClientQuit{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pbuf_chat_proto_msgTypes[3]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ClientMessage_ClientQuit) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientMessage_ClientQuit) ProtoMessage() {}
+
+func (x *ClientMessage_ClientQuit) ProtoReflect() protoreflect.Message {
+	mi := &file_pbuf_chat_proto_msgTypes[3]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientMessage_ClientQuit.ProtoReflect.Descriptor instead.
+func (*ClientMessage_ClientQuit) Descriptor() ([]byte, []int) {
+	return file_pbuf_chat_proto_rawDescGZIP(), []int{0, 1}
+}
+
+type ClientMessage_ClientWriteMessage struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Body string `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
+}
+
+func (x *ClientMessage_ClientWriteMessage) Reset() {
+	*x = ClientMessage_ClientWriteMessage{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pbuf_chat_proto_msgTypes[4]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ClientMessage_ClientWriteMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientMessage_ClientWriteMessage) ProtoMessage() {}
+
+func (x *ClientMessage_ClientWriteMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_pbuf_chat_proto_msgTypes[4]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientMessage_ClientWriteMessage.ProtoReflect.Descriptor instead.
+func (*ClientMessage_ClientWriteMessage) Descriptor() ([]byte, []int) {
+	return file_pbuf_chat_proto_rawDescGZIP(), []int{0, 2}
+}
+
+func (x *ClientMessage_ClientWriteMessage) GetBody() string {
+	if x != nil {
+		return x.Body
+	}
+	return ""
+}
+
+type ServerMessage_ServerShutdown struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *ServerMessage_ServerShutdown) Reset() {
+	*x = ServerMessage_ServerShutdown{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pbuf_chat_proto_msgTypes[5]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ServerMessage_ServerShutdown) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerMessage_ServerShutdown) ProtoMessage() {}
+
+func (x *ServerMessage_ServerShutdown) ProtoReflect() protoreflect.Message {
+	mi := &file_pbuf_chat_proto_msgTypes[5]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerMessage_ServerShutdown.ProtoReflect.Descriptor instead.
+func (*ServerMessage_ServerShutdown) Descriptor() ([]byte, []int) {
+	return file_pbuf_chat_proto_rawDescGZIP(), []int{1, 0}
+}
+
+type ServerMessage_ServerForwardMessage struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Body   string `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
+	Author string `protobuf:"bytes,2,opt,name=author,proto3" json:"author,omitempty"`
+}
+
+func (x *ServerMessage_ServerForwardMessage) Reset() {
+	*x = ServerMessage_ServerForwardMessage{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pbuf_chat_proto_msgTypes[6]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ServerMessage_ServerForwardMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerMessage_ServerForwardMessage) ProtoMessage() {}
+
+func (x *ServerMessage_ServerForwardMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_pbuf_chat_proto_msgTypes[6]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerMessage_ServerForwardMessage.ProtoReflect.Descriptor instead.
+func (*ServerMessage_ServerForwardMessage) Descriptor() ([]byte, []int) {
+	return file_pbuf_chat_proto_rawDescGZIP(), []int{1, 1}
+}
+
+func (x *ServerMessage_ServerForwardMessage) GetBody() string {
+	if x != nil {
+		return x.Body
+	}
+	return ""
+}
+
+func (x *ServerMessage_ServerForwardMessage) GetAuthor() string {
+	if x != nil {
+		return x.Author
+	}
+	return ""
+}
+
+type ServerMessage_ServerConfirmRoomCheckout struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *ServerMessage_ServerConfirmRoomCheckout) Reset() {
+	*x = ServerMessage_ServerConfirmRoomCheckout{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pbuf_chat_proto_msgTypes[7]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ServerMessage_ServerConfirmRoomCheckout) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerMessage_ServerConfirmRoomCheckout) ProtoMessage() {}
+
+func (x *ServerMessage_ServerConfirmRoomCheckout) ProtoReflect() protoreflect.Message {
+	mi := &file_pbuf_chat_proto_msgTypes[7]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerMessage_ServerConfirmRoomCheckout.ProtoReflect.Descriptor instead.
+func (*ServerMessage_ServerConfirmRoomCheckout) Descriptor() ([]byte, []int) {
+	return file_pbuf_chat_proto_rawDescGZIP(), []int{1, 2}
+}
+
 var File_pbuf_chat_proto protoreflect.FileDescriptor
 
 var file_pbuf_chat_proto_rawDesc = []byte{
 	0x0a, 0x0f, 0x70, 0x62, 0x75, 0x66, 0x2f, 0x63, 0x68, 0x61, 0x74, 0x2e, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x12, 0x04, 0x70, 0x62, 0x75, 0x66, 0x22, 0x35, 0x0a, 0x07, 0x4d, 0x65, 0x73, 0x73, 0x61,
-	0x67, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09,
-	0x52, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x12, 0x16, 0x0a, 0x06, 0x61, 0x75, 0x74, 0x68, 0x6f, 0x72,
-	0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x61, 0x75, 0x74, 0x68, 0x6f, 0x72, 0x32, 0x37,
-	0x0a, 0x04, 0x43, 0x68, 0x61, 0x74, 0x12, 0x2f, 0x0a, 0x09, 0x52, 0x6f, 0x75, 0x74, 0x65, 0x43,
-	0x68, 0x61, 0x74, 0x12, 0x0d, 0x2e, 0x70, 0x62, 0x75, 0x66, 0x2e, 0x4d, 0x65, 0x73, 0x73, 0x61,
-	0x67, 0x65, 0x1a, 0x0d, 0x2e, 0x70, 0x62, 0x75, 0x66, 0x2e, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67,
-	0x65, 0x22, 0x00, 0x28, 0x01, 0x30, 0x01, 0x42, 0x30, 0x5a, 0x2e, 0x67, 0x69, 0x74, 0x68, 0x75,
-	0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x73, 0x61, 0x76, 0x6f, 0x39, 0x32, 0x2f, 0x70, 0x6c, 0x61,
-	0x79, 0x67, 0x72, 0x6f, 0x75, 0x6e, 0x64, 0x2d, 0x67, 0x6f, 0x2d, 0x67, 0x72, 0x70, 0x63, 0x2f,
-	0x63, 0x68, 0x61, 0x74, 0x2f, 0x70, 0x62, 0x75, 0x66, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f,
-	0x33,
+	0x6f, 0x12, 0x04, 0x70, 0x62, 0x75, 0x66, 0x1a, 0x19, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2f,
+	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2f, 0x61, 0x6e, 0x79, 0x2e, 0x70, 0x72, 0x6f,
+	0x74, 0x6f, 0x22, 0x95, 0x02, 0x0a, 0x0d, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x4d, 0x65, 0x73,
+	0x73, 0x61, 0x67, 0x65, 0x12, 0x32, 0x0a, 0x09, 0x6f, 0x70, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f,
+	0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65,
+	0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x41, 0x6e, 0x79, 0x52, 0x09, 0x6f,
+	0x70, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x3b, 0x0a, 0x07, 0x63, 0x6f, 0x6d, 0x6d,
+	0x61, 0x6e, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x21, 0x2e, 0x70, 0x62, 0x75, 0x66,
+	0x2e, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x2e, 0x43,
+	0x6c, 0x69, 0x65, 0x6e, 0x74, 0x43, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x52, 0x07, 0x63, 0x6f,
+	0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x1a, 0x24, 0x0a, 0x0a, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x48,
+	0x65, 0x6c, 0x6f, 0x12, 0x16, 0x0a, 0x06, 0x61, 0x75, 0x74, 0x68, 0x6f, 0x72, 0x18, 0x01, 0x20,
+	0x01, 0x28, 0x09, 0x52, 0x06, 0x61, 0x75, 0x74, 0x68, 0x6f, 0x72, 0x1a, 0x0c, 0x0a, 0x0a, 0x43,
+	0x6c, 0x69, 0x65, 0x6e, 0x74, 0x51, 0x75, 0x69, 0x74, 0x1a, 0x28, 0x0a, 0x12, 0x43, 0x6c, 0x69,
+	0x65, 0x6e, 0x74, 0x57, 0x72, 0x69, 0x74, 0x65, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x12,
+	0x12, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x62,
+	0x6f, 0x64, 0x79, 0x22, 0x35, 0x0a, 0x0d, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x43, 0x6f, 0x6d,
+	0x6d, 0x61, 0x6e, 0x64, 0x12, 0x08, 0x0a, 0x04, 0x48, 0x65, 0x6c, 0x6f, 0x10, 0x00, 0x12, 0x08,
+	0x0a, 0x04, 0x51, 0x75, 0x69, 0x74, 0x10, 0x01, 0x12, 0x10, 0x0a, 0x0c, 0x57, 0x72, 0x69, 0x74,
+	0x65, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x10, 0x02, 0x22, 0xbf, 0x02, 0x0a, 0x0d, 0x53,
+	0x65, 0x72, 0x76, 0x65, 0x72, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x12, 0x32, 0x0a, 0x09,
+	0x6f, 0x70, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32,
+	0x14, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75,
+	0x66, 0x2e, 0x41, 0x6e, 0x79, 0x52, 0x09, 0x6f, 0x70, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e,
+	0x12, 0x3b, 0x0a, 0x07, 0x63, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28,
+	0x0e, 0x32, 0x21, 0x2e, 0x70, 0x62, 0x75, 0x66, 0x2e, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x4d,
+	0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x2e, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x43, 0x6f, 0x6d,
+	0x6d, 0x61, 0x6e, 0x64, 0x52, 0x07, 0x63, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x1a, 0x10, 0x0a,
+	0x0e, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x53, 0x68, 0x75, 0x74, 0x64, 0x6f, 0x77, 0x6e, 0x1a,
+	0x42, 0x0a, 0x14, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x46, 0x6f, 0x72, 0x77, 0x61, 0x72, 0x64,
+	0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x12, 0x16, 0x0a, 0x06, 0x61,
+	0x75, 0x74, 0x68, 0x6f, 0x72, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x61, 0x75, 0x74,
+	0x68, 0x6f, 0x72, 0x1a, 0x1b, 0x0a, 0x19, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x43, 0x6f, 0x6e,
+	0x66, 0x69, 0x72, 0x6d, 0x52, 0x6f, 0x6f, 0x6d, 0x43, 0x68, 0x65, 0x63, 0x6b, 0x6f, 0x75, 0x74,
+	0x22, 0x4a, 0x0a, 0x0d, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x43, 0x6f, 0x6d, 0x6d, 0x61, 0x6e,
+	0x64, 0x12, 0x0c, 0x0a, 0x08, 0x53, 0x68, 0x75, 0x74, 0x64, 0x6f, 0x77, 0x6e, 0x10, 0x00, 0x12,
+	0x12, 0x0a, 0x0e, 0x46, 0x6f, 0x72, 0x77, 0x61, 0x72, 0x64, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67,
+	0x65, 0x10, 0x01, 0x12, 0x17, 0x0a, 0x13, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x72, 0x6d, 0x52, 0x6f,
+	0x6f, 0x6d, 0x43, 0x68, 0x65, 0x63, 0x6b, 0x6f, 0x75, 0x74, 0x10, 0x02, 0x32, 0x43, 0x0a, 0x04,
+	0x43, 0x68, 0x61, 0x74, 0x12, 0x3b, 0x0a, 0x09, 0x52, 0x6f, 0x75, 0x74, 0x65, 0x43, 0x68, 0x61,
+	0x74, 0x12, 0x13, 0x2e, 0x70, 0x62, 0x75, 0x66, 0x2e, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x4d,
+	0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x1a, 0x13, 0x2e, 0x70, 0x62, 0x75, 0x66, 0x2e, 0x53, 0x65,
+	0x72, 0x76, 0x65, 0x72, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x22, 0x00, 0x28, 0x01, 0x30,
+	0x01, 0x42, 0x30, 0x5a, 0x2e, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f,
+	0x73, 0x61, 0x76, 0x6f, 0x39, 0x32, 0x2f, 0x70, 0x6c, 0x61, 0x79, 0x67, 0x72, 0x6f, 0x75, 0x6e,
+	0x64, 0x2d, 0x67, 0x6f, 0x2d, 0x67, 0x72, 0x70, 0x63, 0x2f, 0x63, 0x68, 0x61, 0x74, 0x2f, 0x70,
+	0x62, 0x75, 0x66, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -106,18 +558,33 @@ func file_pbuf_chat_proto_rawDescGZIP() []byte {
 	return file_pbuf_chat_proto_rawDescData
 }
 
-var file_pbuf_chat_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_pbuf_chat_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_pbuf_chat_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_pbuf_chat_proto_goTypes = []interface{}{
-	(*Message)(nil), // 0: pbuf.Message
+	(ClientMessage_ClientCommand)(0),                // 0: pbuf.ClientMessage.ClientCommand
+	(ServerMessage_ServerCommand)(0),                // 1: pbuf.ServerMessage.ServerCommand
+	(*ClientMessage)(nil),                           // 2: pbuf.ClientMessage
+	(*ServerMessage)(nil),                           // 3: pbuf.ServerMessage
+	(*ClientMessage_ClientHelo)(nil),                // 4: pbuf.ClientMessage.ClientHelo
+	(*ClientMessage_ClientQuit)(nil),                // 5: pbuf.ClientMessage.ClientQuit
+	(*ClientMessage_ClientWriteMessage)(nil),        // 6: pbuf.ClientMessage.ClientWriteMessage
+	(*ServerMessage_ServerShutdown)(nil),            // 7: pbuf.ServerMessage.ServerShutdown
+	(*ServerMessage_ServerForwardMessage)(nil),      // 8: pbuf.ServerMessage.ServerForwardMessage
+	(*ServerMessage_ServerConfirmRoomCheckout)(nil), // 9: pbuf.ServerMessage.ServerConfirmRoomCheckout
+	(*anypb.Any)(nil),                               // 10: google.protobuf.Any
 }
 var file_pbuf_chat_proto_depIdxs = []int32{
-	0, // 0: pbuf.Chat.RouteChat:input_type -> pbuf.Message
-	0, // 1: pbuf.Chat.RouteChat:output_type -> pbuf.Message
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	10, // 0: pbuf.ClientMessage.operation:type_name -> google.protobuf.Any
+	0,  // 1: pbuf.ClientMessage.command:type_name -> pbuf.ClientMessage.ClientCommand
+	10, // 2: pbuf.ServerMessage.operation:type_name -> google.protobuf.Any
+	1,  // 3: pbuf.ServerMessage.command:type_name -> pbuf.ServerMessage.ServerCommand
+	2,  // 4: pbuf.Chat.RouteChat:input_type -> pbuf.ClientMessage
+	3,  // 5: pbuf.Chat.RouteChat:output_type -> pbuf.ServerMessage
+	5,  // [5:6] is the sub-list for method output_type
+	4,  // [4:5] is the sub-list for method input_type
+	4,  // [4:4] is the sub-list for extension type_name
+	4,  // [4:4] is the sub-list for extension extendee
+	0,  // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_pbuf_chat_proto_init() }
@@ -127,7 +594,91 @@ func file_pbuf_chat_proto_init() {
 	}
 	if !protoimpl.UnsafeEnabled {
 		file_pbuf_chat_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Message); i {
+			switch v := v.(*ClientMessage); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pbuf_chat_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ServerMessage); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pbuf_chat_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ClientMessage_ClientHelo); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pbuf_chat_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ClientMessage_ClientQuit); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pbuf_chat_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ClientMessage_ClientWriteMessage); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pbuf_chat_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ServerMessage_ServerShutdown); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pbuf_chat_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ServerMessage_ServerForwardMessage); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pbuf_chat_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ServerMessage_ServerConfirmRoomCheckout); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -144,13 +695,14 @@ func file_pbuf_chat_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_pbuf_chat_proto_rawDesc,
-			NumEnums:      0,
-			NumMessages:   1,
+			NumEnums:      2,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_pbuf_chat_proto_goTypes,
 		DependencyIndexes: file_pbuf_chat_proto_depIdxs,
+		EnumInfos:         file_pbuf_chat_proto_enumTypes,
 		MessageInfos:      file_pbuf_chat_proto_msgTypes,
 	}.Build()
 	File_pbuf_chat_proto = out.File

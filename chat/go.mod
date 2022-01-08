@@ -3,6 +3,8 @@ module github.com/savo92/playground-go-grpc/chat
 go 1.17
 
 require (
+	github.com/google/uuid v1.1.2
+	github.com/looplab/fsm v0.3.0
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	google.golang.org/grpc v1.43.0
 	google.golang.org/protobuf v1.25.0
