@@ -21,7 +21,8 @@ type RoomMessage struct {
 }
 
 type room struct {
-	id RoomID
+	id   RoomID
+	name string
 
 	rm *RoomManager
 
@@ -47,6 +48,7 @@ func (r *room) AddParticipant(p *Participant) error {
 }
 
 func (r *room) removeParticipant(id participantID) {
+	log.Debugf("Participant %s removed from room %s", id, r.name)
 	r.mu.Lock()
 	delete(r.participants, id)
 	r.mu.Unlock()
@@ -63,10 +65,13 @@ func (r *room) consumeChan() {
 			utils.AfterEvent(pb.ClientMessage_WriteMessage): func(e *fsm.Event) {
 				rMsg, err := extractRoomMsg(e)
 				if err != nil {
+					log.Errorf("Cannot extract room msg: %v", err)
+
 					return
 				}
 				var writeMsg pb.ClientMessage_ClientWriteMessage
 				if err := pbutils.UnmarshalAny(rMsg.CMsgP.Operation, &writeMsg); err != nil {
+					log.Errorf("Marshal to writeMsg failed: %v", err)
 					// TODO no writeMsg no party
 					return
 				}
@@ -119,6 +124,7 @@ func (r *room) close() {
 	if r.closed {
 		return
 	}
+	log.Debugf("Closing room %s", r.name)
 	r.closed = true
 	r.rm.removeRoom(r.id)
 	r.closeC <- struct{}{}
@@ -127,6 +133,7 @@ func (r *room) close() {
 func newRoom(name string) (*room, error) {
 	r := &room{
 		id:           RoomID(uuid.New().String()),
+		name:         name,
 		participants: make(map[participantID]*Participant),
 		In:           make(chan RoomMessage),
 		closeC:       make(chan interface{}),

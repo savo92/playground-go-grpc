@@ -46,15 +46,14 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 	go func() {
 		defer wg.Done()
 		cCMD := <-closeC
-		close := func() {
-			cancelFunc()
-		}
 
 		if cCMD.delay {
+			log.Debugf("Delaying before closing RouteChat")
 			t := time.NewTimer(5 * time.Second)
 			<-t.C
 		}
-		close()
+		log.Debugf("Closing RouteChat")
+		cancelFunc()
 	}()
 
 	wg.Add(1)

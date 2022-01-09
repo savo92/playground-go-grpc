@@ -2,6 +2,7 @@ package server
 
 import (
 	"github.com/google/uuid"
+	log "github.com/sirupsen/logrus"
 
 	pb "github.com/savo92/playground-go-grpc/chat/pbuf"
 )
@@ -24,6 +25,7 @@ func (p Participant) String() string {
 }
 
 func (p *Participant) disconnect() {
+	log.Debugf("Disconnetting participant %s", p.id)
 	p.CurrentRoom.removeParticipant(p.id)
 	p.DisconnectChan <- struct{}{}
 }

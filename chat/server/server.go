@@ -68,7 +68,7 @@ func NewServer(port int) (*Server, error) {
 
 	pb.RegisterChatServer(s.gRPCServer, s)
 
-	rID, err := rm.CreateRoom()
+	rID, err := rm.CreateRoom("default")
 	if err != nil {
 		return nil, fmt.Errorf("default room creation failed: %w", err)
 	}
