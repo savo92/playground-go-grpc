@@ -92,7 +92,7 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 							shutdownMsg := pb.ServerMessage_ServerShutdown{}
 							op, err := pbutils.MarshalAny(&shutdownMsg)
 							if err != nil {
-								log.Errorf("marshal from shutdownMsg failed: %v", err)
+								log.Errorf("Marshal from shutdownMsg failed: %v", err)
 								// TODO shutdown marshalling failed
 								return
 							}
@@ -164,6 +164,8 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 				return
 			}
 			if err != nil {
+				log.Errorf("Recv failed: %v", err)
+
 				return
 			}
 

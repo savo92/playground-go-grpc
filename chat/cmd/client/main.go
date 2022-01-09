@@ -156,15 +156,10 @@ func run() error {
 				}()
 			},
 			utils.AfterEvent(pb.ServerMessage_ForwardMessage): func(e *fsm.Event) {
-				if len(e.Args) == 0 {
-					log.Errorf("e.Args is empty")
-					// TODO handle missing message
-					return
-				}
-				sMsgP, ok := e.Args[0].(*pb.ServerMessage)
-				if !ok {
-					log.Errorf("Cannot cast to pb.ServerMessage")
-					// TODO handle bad message
+				sMsgP, err := extractServerMsg(e)
+				if err != nil {
+					log.Errorf("Cannot extract server msg: %v", err)
+
 					return
 				}
 				var forwardMsg pb.ServerMessage_ServerForwardMessage
@@ -183,6 +178,7 @@ func run() error {
 				quitMsg := pb.ClientMessage_ClientQuit{}
 				op, err := pbutils.MarshalAny(&quitMsg)
 				if err != nil {
+					log.Errorf("Marshal from quitMsg failed: %v", err)
 					// TODO handle marshaller failure
 					return
 				}
@@ -191,7 +187,8 @@ func run() error {
 					Operation: op,
 				}
 
-				if err := stream.Send(&cMsg); err != nil {
+				if err := stream.Send(&cMsg); err != nil && !errors.Is(err, io.EOF) {
+					log.Errorf("Send failed: %v", err)
 					// TODO end send failure
 					return
 				}
@@ -208,10 +205,12 @@ func run() error {
 		for {
 			sMsgP, err := stream.Recv()
 			if errors.Is(err, io.EOF) {
-				// TODO handle EOF
+				sigint <- os.Interrupt
+
 				return
 			}
 			if err != nil {
+				log.Errorf("Recv failed: %v", err)
 				// TODO handle recv error
 				return
 			}
@@ -285,4 +284,16 @@ func configureLog() (func(), error) {
 	default:
 		return nil, fmt.Errorf("invalid logDst %s", *logDst)
 	}
+}
+
+func extractServerMsg(e *fsm.Event) (*pb.ServerMessage, error) {
+	if len(e.Args) == 0 {
+		return nil, fmt.Errorf("e.Args is empty")
+	}
+	sMsgP, ok := e.Args[0].(*pb.ServerMessage)
+	if !ok {
+		return nil, fmt.Errorf("type assertion to *pb.ServerMessage failed")
+	}
+
+	return sMsgP, nil
 }

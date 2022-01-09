@@ -78,6 +78,7 @@ func (r *room) consumeChan() {
 					}
 					op, err := pbutils.MarshalAny(&forwardMessage)
 					if err != nil {
+						log.Errorf("Marshal from forwardMessage failed: %v", err)
 						// TODO handle marshalling failed
 						return
 					}
