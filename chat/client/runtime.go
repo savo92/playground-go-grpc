@@ -25,7 +25,7 @@ func Run(author string, stream pb.Chat_RouteChatClient, sigint chan os.Signal, s
 		},
 		fsm.Callbacks{
 			"after_pair": PairHandler(stream, author),
-			utils.AfterEvent(pb.ServerMessage_ConfirmRoomCheckout): ConfirmRoomHandler(stream),
+			utils.AfterEvent(pb.ServerMessage_ConfirmRoomCheckout): ConfirmRoomHandler(stream, sigint),
 			utils.AfterEvent(pb.ServerMessage_ForwardMessage):      ForwardMessageHandler(author),
 			utils.AfterEvent(pb.ServerMessage_Shutdown):            ShutdownHandler(stream, sigint),
 		},
@@ -49,8 +49,6 @@ func Run(author string, stream pb.Chat_RouteChatClient, sigint chan os.Signal, s
 		for {
 			sMsgP, err := stream.Recv()
 			if errors.As(err, &io.EOF) {
-				sigint <- os.Interrupt
-
 				return nil
 			}
 			if err != nil {

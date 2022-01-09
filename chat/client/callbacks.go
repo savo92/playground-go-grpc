@@ -39,7 +39,7 @@ func PairHandler(stream pb.Chat_RouteChatClient, author string) fsm.Callback {
 	}
 }
 
-func ConfirmRoomHandler(stream pb.Chat_RouteChatClient) fsm.Callback {
+func ConfirmRoomHandler(stream pb.Chat_RouteChatClient, sigint chan<- os.Signal) fsm.Callback {
 	return func(e *fsm.Event) {
 		go func() {
 			reader := bufio.NewReader(os.Stdin)
@@ -55,6 +55,8 @@ func ConfirmRoomHandler(stream pb.Chat_RouteChatClient) fsm.Callback {
 
 				switch message {
 				case "q":
+					sigint <- os.Interrupt
+
 					return
 				case "":
 					// do not send empty messages.
