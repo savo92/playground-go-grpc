@@ -2,45 +2,43 @@ name: Go
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
-
-  build_chat:
+  ci_chat:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Set up Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: 1.17
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.17
 
-    - name: Setup Go cache
-      uses: actions/cache@v2
-      with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('chat/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
+      - name: Setup Go cache
+        uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('chat/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
 
+      - name: Lint
+        uses: golangci/golangci-lint-action@v2
+        with:
+          version: latest
+          working-directory: ./chat
+          args: -E gosec -E makezero -E misspell -E revive -E whitespace -E errorlint -E nlreturn -E thelper
+          skip-go-installation: true
+          skip-pkg-cache: true
+          skip-build-cache: true
 
-    - name: Lint
-      uses: golangci/golangci-lint-action@v2
-      with:
-        version: latest
+      - name: Build
+        run: go build -v ./...
         working-directory: ./chat
-        args: -E gosec -E makezero -E misspell -E revive -E whitespace -E errorlint -E nlreturn -E thelper
-        skip-go-installation: true
-        skip-pkg-cache: true
-        skip-build-cache: true
 
-    - name: Build
-      run: go build -v ./...
-      working-directory: ./chat
-
-    - name: Test
-      run: go test -v ./...
-      working-directory: ./chat
+      - name: Test
+        run: go test -v ./...
+        working-directory: ./chat
