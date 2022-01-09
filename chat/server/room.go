@@ -2,12 +2,12 @@ package server
 
 import (
 	"fmt"
-	"log"
 	"sync"
 
 	pbutils "github.com/golang/protobuf/ptypes"
 	"github.com/google/uuid"
 	"github.com/looplab/fsm"
+	log "github.com/sirupsen/logrus"
 
 	pb "github.com/savo92/playground-go-grpc/chat/pbuf"
 )
@@ -102,11 +102,11 @@ func (r *room) consumeChan() {
 		case rMsgP := <-r.in:
 			cmd := rMsgP.cMsgP.Command.String()
 			if err := sm.Event(cmd, rMsgP); err != nil {
-				log.Printf("failed to submit %s: %v", cmd, err)
+				log.Errorf("Failed to submit %s: %v", cmd, err)
 			}
 			if sm.Current() == "receiving" {
 				if err := sm.Event("readyAgain"); err != nil {
-					log.Printf("failed to submit readyAgain: %v", err)
+					log.Errorf("Failed to submit readyAgain: %v", err)
 				}
 			}
 		}

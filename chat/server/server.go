@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 
 	"github.com/looplab/fsm"
+	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 
 	pb "github.com/savo92/playground-go-grpc/chat/pbuf"
@@ -37,7 +37,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done():
-		log.Println("Graceful shutdown timed out, killing")
+		log.Warn("Graceful shutdown timed out, killing")
 		s.gRPCServer.Stop()
 	case <-gracefulShutdownSignal:
 	}

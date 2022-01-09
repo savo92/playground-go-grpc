@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"sync"
 	"time"
 
 	pbutils "github.com/golang/protobuf/ptypes"
 	"github.com/looplab/fsm"
+	log "github.com/sirupsen/logrus"
 
 	pb "github.com/savo92/playground-go-grpc/chat/pbuf"
 )
@@ -41,25 +41,25 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 				var cMsgP *pb.ClientMessage
 				cMsgP, err = extractClientMsg(e)
 				if err != nil {
-					log.Printf("cannot extract client msg: %v", err)
+					log.Errorf("Cannot extract client msg: %v", err)
 
 					return
 				}
 				var heloMsg pb.ClientMessage_ClientHelo
 				if err := pbutils.UnmarshalAny(cMsgP.Operation, &heloMsg); err != nil {
-					log.Printf("cannot unmarshal to ClientMessage_ClientHelo: %v", err)
+					log.Errorf("Cannot unmarshal to helo: %v", err)
 					// TODO no helo no party
 					return
 				}
 
 				p, err = newParticipant(heloMsg.Author)
 				if err != nil {
-					log.Printf("participant creation failed: %v", err)
+					log.Errorf("Participant creation failed: %v", err)
 					// TODO helo failed
 					return
 				}
 				if err := s.rm.rooms[s.defaultRoom].addParticipant(p); err != nil {
-					log.Printf("room checkout failed: %v", err)
+					log.Errorf("Room checkout failed: %v", err)
 					// TODO participant registration failed
 					return
 				}
@@ -67,7 +67,7 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 				confirmRoomMsg := pb.ServerMessage_ServerConfirmRoomCheckout{}
 				op, err := pbutils.MarshalAny(&confirmRoomMsg)
 				if err != nil {
-					log.Printf("room checkout confirmation failed: %v", err)
+					log.Errorf("Room checkout confirmation failed: %v", err)
 					// TODO room checkout confirmation failed
 					return
 				}
@@ -87,7 +87,7 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 							shutdownMsg := pb.ServerMessage_ServerShutdown{}
 							op, err := pbutils.MarshalAny(&shutdownMsg)
 							if err != nil {
-								log.Printf("shutdown msg marshalling failed: %v", err)
+								log.Errorf("marshal from shutdownMsg failed: %v", err)
 								// TODO shutdown marshalling failed
 								return
 							}
@@ -104,7 +104,7 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 
 									return
 								}
-								log.Printf("send failed: %v", err)
+								log.Errorf("Send to %s failed: %v", p.id, err)
 
 								return
 							}
@@ -117,7 +117,7 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 			fmt.Sprintf("after_%s", pb.ClientMessage_WriteMessage.String()): func(e *fsm.Event) {
 				cMsgP, err := extractClientMsg(e)
 				if err != nil {
-					log.Printf("cannot extract client msg: %v", err)
+					log.Errorf("Cannot extract client msg: %v", err)
 
 					return
 				}
@@ -162,14 +162,14 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 				return
 			}
 
-			log.Printf("Got %s", cMsgP.Command.String())
+			log.Debugf("Got %s", cMsgP.Command.String())
 
 			if err := sm.Event(cMsgP.Command.String(), cMsgP); err != nil {
-				log.Printf("failed to submit %s: %v", cMsgP.Command.String(), err)
+				log.Errorf("Failed to submit %s: %v", cMsgP.Command.String(), err)
 			}
 			if sm.Current() == "receiving" {
 				if err := sm.Event("readyAgain"); err != nil {
-					log.Printf("failed to submit readyAgain: %v", err)
+					log.Errorf("Failed to submit readyAgain: %v", err)
 				}
 			}
 		}
