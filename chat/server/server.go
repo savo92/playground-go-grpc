@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc"
 
 	pb "github.com/savo92/playground-go-grpc/chat/pbuf"
+	internal "github.com/savo92/playground-go-grpc/chat/server/internal"
 )
 
 type Server struct {
@@ -19,8 +20,8 @@ type Server struct {
 	listener   net.Listener
 	gRPCServer *grpc.Server
 
-	rm          *roomManager
-	defaultRoom roomID
+	rm          *internal.RoomManager
+	defaultRoom internal.RoomID
 }
 
 func (s *Server) Serve() error {
@@ -30,7 +31,7 @@ func (s *Server) Serve() error {
 func (s *Server) Shutdown(ctx context.Context) error {
 	gracefulShutdownSignal := make(chan struct{}, 1)
 	go func() {
-		s.rm.close()
+		s.rm.Close()
 		s.gRPCServer.GracefulStop()
 		close(gracefulShutdownSignal)
 	}()
@@ -54,7 +55,7 @@ func NewServer(port int) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %w", err)
 	}
-	rm, err := newRoomManager()
+	rm, err := internal.NewRoomManager()
 	if err != nil {
 		return nil, fmt.Errorf("newRoomManager failed: %w", err)
 	}
@@ -67,7 +68,7 @@ func NewServer(port int) (*Server, error) {
 
 	pb.RegisterChatServer(s.gRPCServer, s)
 
-	rID, err := rm.createRoom()
+	rID, err := rm.CreateRoom()
 	if err != nil {
 		return nil, fmt.Errorf("default room creation failed: %w", err)
 	}

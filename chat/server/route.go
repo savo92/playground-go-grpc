@@ -11,6 +11,7 @@ import (
 	"github.com/looplab/fsm"
 	log "github.com/sirupsen/logrus"
 
+	internal "github.com/savo92/playground-go-grpc/chat/server/internal"
 	pb "github.com/savo92/playground-go-grpc/chat/pbuf"
 )
 
@@ -19,7 +20,7 @@ type closeCMD struct {
 }
 
 func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
-	var p *participant
+	var p *internal.Participant
 
 	var wg sync.WaitGroup
 	closeChan := make(chan closeCMD)
@@ -51,13 +52,17 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 					return
 				}
 
-				p, err = newParticipant(heloMsg.Author)
+				p, err = internal.NewParticipant(heloMsg.Author)
 				if err != nil {
 					log.Errorf("Participant creation failed: %v", err)
 					// TODO helo failed
 					return
 				}
-				if err := s.rm.rooms[s.defaultRoom].addParticipant(p); err != nil {
+				room, ok := s.rm.GetRoom(s.defaultRoom)
+				if !ok {
+					log.Errorf("Unable to get room %s", s.defaultRoom)
+				}
+				if err := room.AddParticipant(p); err != nil {
 					log.Errorf("Room checkout failed: %v", err)
 					// TODO participant registration failed
 					return
@@ -82,7 +87,7 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 						select {
 						case <-ctx.Done():
 							return
-						case <-p.disconnectChan:
+						case <-p.DisconnectChan:
 							shutdownMsg := pb.ServerMessage_ServerShutdown{}
 							op, err := pbutils.MarshalAny(&shutdownMsg)
 							if err != nil {
@@ -94,16 +99,16 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 								Command:   pb.ServerMessage_Shutdown,
 								Operation: op,
 							}
-							p.out <- &sMsg
+							p.Out <- &sMsg
 							closeChan <- closeCMD{delay: true}
-						case sMsgP := <-p.out:
+						case sMsgP := <-p.Out:
 							if err := stream.Send(sMsgP); err != nil {
 								if errors.Is(err, io.EOF) {
 									closeChan <- closeCMD{}
 
 									return
 								}
-								log.Errorf("Send to %s failed: %v", p.id, err)
+								log.Errorf("Send to %s failed: %v", p.String(), err)
 
 								return
 							}
@@ -111,7 +116,7 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 					}
 				}()
 
-				p.out <- &sMsg
+				p.Out <- &sMsg
 			},
 			afterEvent(pb.ClientMessage_WriteMessage): func(e *fsm.Event) {
 				cMsgP, err := extractClientMsg(e)
@@ -121,9 +126,9 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 					return
 				}
 
-				p.currentRoom.in <- roomMessage{
-					cMsgP:       cMsgP,
-					participant: p,
+				p.CurrentRoom.In <- internal.RoomMessage{
+					CMsgP:       cMsgP,
+					Participant: p,
 				}
 			},
 			afterEvent(pb.ClientMessage_Quit): func(e *fsm.Event) {

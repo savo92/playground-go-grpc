@@ -12,32 +12,32 @@ import (
 	pb "github.com/savo92/playground-go-grpc/chat/pbuf"
 )
 
-type roomID string
+type RoomID string
 
-type roomMessage struct {
-	cMsgP       *pb.ClientMessage
-	participant *participant
+type RoomMessage struct {
+	CMsgP       *pb.ClientMessage
+	Participant *Participant
 }
 
 type room struct {
-	id roomID
+	id RoomID
 
-	rm *roomManager
+	rm *RoomManager
 
-	participants map[participantID]*participant
+	participants map[participantID]*Participant
 	mu           sync.Mutex
 
-	in chan roomMessage
+	In chan RoomMessage
 
 	closeC chan interface{}
 	closed bool
 }
 
-func (r *room) addParticipant(p *participant) error {
+func (r *room) AddParticipant(p *Participant) error {
 	if r.closed {
 		return fmt.Errorf("room is closed")
 	}
-	p.currentRoom = r
+	p.CurrentRoom = r
 	r.mu.Lock()
 	r.participants[p.id] = p
 	r.mu.Unlock()
@@ -65,14 +65,14 @@ func (r *room) consumeChan() {
 					return
 				}
 				var writeMsg pb.ClientMessage_ClientWriteMessage
-				if err := pbutils.UnmarshalAny(rMsg.cMsgP.Operation, &writeMsg); err != nil {
+				if err := pbutils.UnmarshalAny(rMsg.CMsgP.Operation, &writeMsg); err != nil {
 					// TODO no writeMsg no party
 					return
 				}
 
 				for _, p := range copyParticipants(r) {
 					forwardMessage := pb.ServerMessage_ServerForwardMessage{
-						Author: rMsg.participant.username,
+						Author: rMsg.Participant.username,
 						Body:   writeMsg.Body,
 					}
 					op, err := pbutils.MarshalAny(&forwardMessage)
@@ -84,7 +84,7 @@ func (r *room) consumeChan() {
 						Command:   pb.ServerMessage_ForwardMessage,
 						Operation: op,
 					}
-					p.out <- &sMsg
+					p.Out <- &sMsg
 				}
 			},
 		},
@@ -99,8 +99,8 @@ func (r *room) consumeChan() {
 			}
 
 			return
-		case rMsgP := <-r.in:
-			cmd := rMsgP.cMsgP.Command.String()
+		case rMsgP := <-r.In:
+			cmd := rMsgP.CMsgP.Command.String()
 			if err := sm.Event(cmd, rMsgP); err != nil {
 				log.Errorf("Failed to submit %s: %v", cmd, err)
 			}
@@ -124,9 +124,9 @@ func (r *room) close() {
 
 func newRoom(name string) (*room, error) {
 	r := &room{
-		id:           roomID(uuid.New().String()),
-		participants: make(map[participantID]*participant),
-		in:           make(chan roomMessage),
+		id:           RoomID(uuid.New().String()),
+		participants: make(map[participantID]*Participant),
+		In:           make(chan RoomMessage),
 		closeC:       make(chan interface{}),
 	}
 
@@ -135,10 +135,10 @@ func newRoom(name string) (*room, error) {
 	return r, nil
 }
 
-func copyParticipants(r *room) []*participant {
+func copyParticipants(r *room) []*Participant {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	participants := make([]*participant, len(r.participants))
+	participants := make([]*Participant, len(r.participants))
 	i := 0
 	for _, p := range r.participants {
 		participants[i] = p
@@ -148,14 +148,19 @@ func copyParticipants(r *room) []*participant {
 	return participants
 }
 
-func extractRoomMsg(e *fsm.Event) (roomMessage, error) {
+func extractRoomMsg(e *fsm.Event) (RoomMessage, error) {
 	if len(e.Args) == 0 {
-		return roomMessage{}, fmt.Errorf("not enough Args")
+		return RoomMessage{}, fmt.Errorf("not enough Args")
 	}
-	rMsg, ok := e.Args[0].(roomMessage)
+	rMsg, ok := e.Args[0].(RoomMessage)
 	if !ok {
-		return roomMessage{}, fmt.Errorf("type assertion to roomMessage failed")
+		return RoomMessage{}, fmt.Errorf("type assertion to roomMessage failed")
 	}
 
 	return rMsg, nil
+}
+
+
+func afterEvent(cmd pb.ClientMessage_ClientCommand) string {
+	return fmt.Sprint("after_", cmd.String())
 }
