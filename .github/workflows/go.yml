@@ -40,5 +40,5 @@ jobs:
         working-directory: ./chat
 
       - name: Test
-        run: go test -v ./...
+        run: go test -v -cover -race ./...
         working-directory: ./chat
