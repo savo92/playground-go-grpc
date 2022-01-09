@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	pbutils "github.com/golang/protobuf/ptypes"
 	"github.com/looplab/fsm"
 	log "github.com/sirupsen/logrus"
 
@@ -24,7 +23,7 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 	var p *internal.Participant
 
 	var wg sync.WaitGroup
-	closeChan := make(chan closeCMD)
+	closeC := make(chan closeCMD)
 	ctx, cancelFunc := context.WithCancel(stream.Context())
 	defer cancelFunc()
 
@@ -37,111 +36,16 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 			{Name: pb.ClientMessage_Quit.String(), Src: []string{"booting", "ready", "receiving"}, Dst: "closed"},
 		},
 		fsm.Callbacks{
-			utils.AfterEvent(pb.ClientMessage_Helo): func(e *fsm.Event) {
-				var err error
-				var cMsgP *pb.ClientMessage
-				cMsgP, err = extractClientMsg(e)
-				if err != nil {
-					log.Errorf("Cannot extract client msg: %v", err)
-
-					return
-				}
-				var heloMsg pb.ClientMessage_ClientHelo
-				if err := pbutils.UnmarshalAny(cMsgP.Operation, &heloMsg); err != nil {
-					log.Errorf("Cannot unmarshal to helo: %v", err)
-					// TODO no helo no party
-					return
-				}
-
-				p, err = internal.NewParticipant(heloMsg.Author)
-				if err != nil {
-					log.Errorf("Participant creation failed: %v", err)
-					// TODO helo failed
-					return
-				}
-				room, ok := s.rm.GetRoom(s.defaultRoom)
-				if !ok {
-					log.Errorf("Unable to get room %s", s.defaultRoom)
-				}
-				if err := room.AddParticipant(p); err != nil {
-					log.Errorf("Room checkout failed: %v", err)
-					// TODO participant registration failed
-					return
-				}
-
-				confirmRoomMsg := pb.ServerMessage_ServerConfirmRoomCheckout{}
-				op, err := pbutils.MarshalAny(&confirmRoomMsg)
-				if err != nil {
-					log.Errorf("Room checkout confirmation failed: %v", err)
-					// TODO room checkout confirmation failed
-					return
-				}
-				sMsg := pb.ServerMessage{
-					Command:   pb.ServerMessage_ConfirmRoomCheckout,
-					Operation: op,
-				}
-
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					for {
-						select {
-						case <-ctx.Done():
-							return
-						case <-p.DisconnectChan:
-							shutdownMsg := pb.ServerMessage_ServerShutdown{}
-							op, err := pbutils.MarshalAny(&shutdownMsg)
-							if err != nil {
-								log.Errorf("Marshal from shutdownMsg failed: %v", err)
-								// TODO shutdown marshalling failed
-								return
-							}
-							sMsg := pb.ServerMessage{
-								Command:   pb.ServerMessage_Shutdown,
-								Operation: op,
-							}
-							p.Out <- &sMsg
-							closeChan <- closeCMD{delay: true}
-						case sMsgP := <-p.Out:
-							if err := stream.Send(sMsgP); err != nil {
-								if errors.Is(err, io.EOF) {
-									closeChan <- closeCMD{}
-
-									return
-								}
-								log.Errorf("Send to %s failed: %v", p, err)
-
-								return
-							}
-						}
-					}
-				}()
-
-				p.Out <- &sMsg
-			},
-			utils.AfterEvent(pb.ClientMessage_WriteMessage): func(e *fsm.Event) {
-				cMsgP, err := extractClientMsg(e)
-				if err != nil {
-					log.Errorf("Cannot extract client msg: %v", err)
-
-					return
-				}
-
-				p.CurrentRoom.In <- internal.RoomMessage{
-					CMsgP:       cMsgP,
-					Participant: p,
-				}
-			},
-			utils.AfterEvent(pb.ClientMessage_Quit): func(e *fsm.Event) {
-				closeChan <- closeCMD{}
-			},
+			utils.AfterEvent(pb.ClientMessage_Helo):         heloHandler(ctx, &wg, stream, s, p, closeC),
+			utils.AfterEvent(pb.ClientMessage_WriteMessage): writeMessageHandler(ctx, &wg, stream, s, p, closeC),
+			utils.AfterEvent(pb.ClientMessage_Quit):         quitHandler(ctx, &wg, stream, s, p, closeC),
 		},
 	)
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		cCMD := <-closeChan
+		cCMD := <-closeC
 		close := func() {
 			cancelFunc()
 		}
@@ -159,7 +63,7 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 		for {
 			cMsgP, err := stream.Recv()
 			if errors.Is(err, io.EOF) {
-				closeChan <- closeCMD{}
+				closeC <- closeCMD{}
 
 				return
 			}
