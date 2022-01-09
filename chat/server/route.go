@@ -63,7 +63,6 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 					// TODO participant registration failed
 					return
 				}
-				p.currentRoom = s.rm.rooms[s.defaultRoom]
 
 				confirmRoomMsg := pb.ServerMessage_ServerConfirmRoomCheckout{}
 				op, err := pbutils.MarshalAny(&confirmRoomMsg)

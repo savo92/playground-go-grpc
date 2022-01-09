@@ -20,6 +20,7 @@ func (rm *roomManager) createRoom() (roomID, error) {
 	if err != nil {
 		return roomID(""), err
 	}
+	r.rm = rm
 	rm.mu.Lock()
 	rm.rooms[r.id] = r
 	rm.mu.Unlock()

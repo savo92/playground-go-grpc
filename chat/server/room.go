@@ -37,6 +37,7 @@ func (r *room) addParticipant(p *participant) error {
 	if r.closed {
 		return fmt.Errorf("room is closed")
 	}
+	p.currentRoom = r
 	r.mu.Lock()
 	r.participants[p.id] = p
 	r.mu.Unlock()
