@@ -120,7 +120,7 @@ func ShutdownHandler(stream pb.Chat_RouteChatClient, sigint chan<- os.Signal) fs
 			Operation: op,
 		}
 
-		if err := stream.Send(&cMsg); err != nil && !errors.Is(err, io.EOF) {
+		if err := stream.Send(&cMsg); err != nil && !errors.As(err, &io.EOF) {
 			log.Errorf("Send failed: %v", err)
 			// TODO end send failure
 			return

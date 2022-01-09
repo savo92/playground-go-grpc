@@ -4,16 +4,16 @@ import (
 	"errors"
 	"io"
 	"os"
-	"sync"
 
 	"github.com/looplab/fsm"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 
 	pb "github.com/savo92/playground-go-grpc/chat/pbuf"
 	utils "github.com/savo92/playground-go-grpc/chat/utils"
 )
 
-func Run(author string, stream pb.Chat_RouteChatClient, sigint chan<- os.Signal) error {
+func Run(author string, stream pb.Chat_RouteChatClient, sigint chan os.Signal, stopFunc func()) error {
 	sm := fsm.NewFSM(
 		"booting",
 		fsm.Events{
@@ -31,22 +31,30 @@ func Run(author string, stream pb.Chat_RouteChatClient, sigint chan<- os.Signal)
 		},
 	)
 
-	var wg sync.WaitGroup
+	g := new(errgroup.Group)
 
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
+		<-sigint
+
+		defer stopFunc()
+		cmd := pb.ServerMessage_Shutdown.String()
+		if sm.Current() != "closed" {
+			if err := sm.Event(cmd); err != nil {
+				log.Errorf("Send quitMsg failed: %v", err)
+			}
+		}
+	}()
+
+	g.Go(func() error {
 		for {
 			sMsgP, err := stream.Recv()
-			if errors.Is(err, io.EOF) {
+			if errors.As(err, &io.EOF) {
 				sigint <- os.Interrupt
 
-				return
+				return nil
 			}
 			if err != nil {
-				log.Errorf("Recv failed: %v", err)
-				// TODO handle recv error
-				return
+				return err
 			}
 
 			cmd := sMsgP.Command.String()
@@ -60,13 +68,11 @@ func Run(author string, stream pb.Chat_RouteChatClient, sigint chan<- os.Signal)
 				}
 			}
 		}
-	}()
+	})
 
 	if err := sm.Event("pair"); err != nil {
 		return err
 	}
 
-	wg.Wait()
-
-	return nil
+	return g.Wait()
 }

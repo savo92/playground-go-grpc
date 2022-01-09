@@ -36,19 +36,19 @@ var (
 // )
 
 func main() {
+	flag.Parse()
+	teardownLog, err := configureLog()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer teardownLog()
+
 	if err := run(); err != nil {
 		log.Fatal(err)
 	}
 }
 
 func run() error {
-	flag.Parse()
-	teardownLog, err := configureLog()
-	if err != nil {
-		return err
-	}
-	defer teardownLog()
-
 	author, err := getAuthor()
 	if err != nil {
 		return err
@@ -72,14 +72,9 @@ func run() error {
 	}()
 
 	sigint := make(chan os.Signal, 1)
-	go func() {
-		signal.Notify(sigint, os.Interrupt)
-		<-sigint
-		// TODO send a Quit message
-		cancelFunc()
-	}()
+	signal.Notify(sigint, os.Interrupt)
 
-	return client.Run(author, stream, sigint)
+	return client.Run(author, stream, sigint, cancelFunc)
 }
 
 func configureLog() (func(), error) {

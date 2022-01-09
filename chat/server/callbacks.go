@@ -72,7 +72,7 @@ func heloHandler(
 
 			sendFunc := func(msg *pb.ServerMessage) error {
 				if err := stream.Send(msg); err != nil {
-					if errors.Is(err, io.EOF) {
+					if errors.As(err, &io.EOF) {
 						closeC <- closeCMD{}
 
 						return nil
