@@ -112,7 +112,7 @@ func run() error {
 					return
 				}
 			},
-			fmt.Sprintf("after_%s", pb.ServerMessage_ConfirmRoomCheckout.String()): func(e *fsm.Event) {
+			afterEvent(pb.ServerMessage_ConfirmRoomCheckout): func(e *fsm.Event) {
 				go func() {
 					reader := bufio.NewReader(os.Stdin)
 					for {
@@ -154,7 +154,7 @@ func run() error {
 					}
 				}()
 			},
-			fmt.Sprintf("after_%s", pb.ServerMessage_ForwardMessage.String()): func(e *fsm.Event) {
+			afterEvent(pb.ServerMessage_ForwardMessage): func(e *fsm.Event) {
 				if len(e.Args) == 0 {
 					log.Errorf("e.Args is empty")
 					// TODO handle missing message
@@ -178,7 +178,7 @@ func run() error {
 				}
 				fmt.Printf("%s: %s\n", forwardMsg.Author, forwardMsg.Body)
 			},
-			fmt.Sprintf("after_%s", pb.ServerMessage_Shutdown.String()): func(e *fsm.Event) {
+			afterEvent(pb.ServerMessage_Shutdown): func(e *fsm.Event) {
 				quitMsg := pb.ClientMessage_ClientQuit{}
 				op, err := pbutils.MarshalAny(&quitMsg)
 				if err != nil {
@@ -284,4 +284,8 @@ func configureLog() (func(), error) {
 	default:
 		return nil, fmt.Errorf("invalid logDst %s", *logDst)
 	}
+}
+
+func afterEvent(cmd pb.ServerMessage_ServerCommand) string {
+	return fmt.Sprint("after_", cmd.String())
 }

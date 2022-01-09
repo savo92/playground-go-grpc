@@ -59,7 +59,7 @@ func (r *room) consumeChan() {
 			{Name: "readyAgain", Src: []string{"receiving"}, Dst: "idle"},
 		},
 		fsm.Callbacks{
-			fmt.Sprintf("after_%s", pb.ClientMessage_WriteMessage.String()): func(e *fsm.Event) {
+			afterEvent(pb.ClientMessage_WriteMessage): func(e *fsm.Event) {
 				rMsg, err := extractRoomMsg(e)
 				if err != nil {
 					return

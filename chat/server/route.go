@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -36,7 +35,7 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 			{Name: pb.ClientMessage_Quit.String(), Src: []string{"booting", "ready", "receiving"}, Dst: "closed"},
 		},
 		fsm.Callbacks{
-			fmt.Sprintf("after_%s", pb.ClientMessage_Helo.String()): func(e *fsm.Event) {
+			afterEvent(pb.ClientMessage_Helo): func(e *fsm.Event) {
 				var err error
 				var cMsgP *pb.ClientMessage
 				cMsgP, err = extractClientMsg(e)
@@ -114,7 +113,7 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 
 				p.out <- &sMsg
 			},
-			fmt.Sprintf("after_%s", pb.ClientMessage_WriteMessage.String()): func(e *fsm.Event) {
+			afterEvent(pb.ClientMessage_WriteMessage): func(e *fsm.Event) {
 				cMsgP, err := extractClientMsg(e)
 				if err != nil {
 					log.Errorf("Cannot extract client msg: %v", err)
@@ -127,7 +126,7 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 					participant: p,
 				}
 			},
-			fmt.Sprintf("after_%s", pb.ClientMessage_Quit.String()): func(e *fsm.Event) {
+			afterEvent(pb.ClientMessage_Quit): func(e *fsm.Event) {
 				closeChan <- closeCMD{}
 			},
 		},
