@@ -69,11 +69,27 @@ func heloHandler(
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+
+			sendFunc := func(msg *pb.ServerMessage) error {
+				if err := stream.Send(msg); err != nil {
+					if errors.Is(err, io.EOF) {
+						closeC <- closeCMD{}
+
+						return nil
+					}
+
+					return err
+				}
+
+				return nil
+			}
+
 			for {
 				select {
 				case <-ctx.Done():
 					return
 				case <-p.DisconnectChan:
+					log.Debugf("Got DisconnectChan")
 					shutdownMsg := pb.ServerMessage_ServerShutdown{}
 					op, err := pbutils.MarshalAny(&shutdownMsg)
 					if err != nil {
@@ -85,18 +101,14 @@ func heloHandler(
 						Command:   pb.ServerMessage_Shutdown,
 						Operation: op,
 					}
-					p.Out <- &sMsg
+					if err := sendFunc(&sMsg); err != nil {
+						log.Errorf("Send Shutdown to %s failed: %v", p, err)
+					}
 					closeC <- closeCMD{delay: true}
+					log.Debugf("Done DisconnectChan")
 				case sMsgP := <-p.Out:
-					if err := stream.Send(sMsgP); err != nil {
-						if errors.Is(err, io.EOF) {
-							closeC <- closeCMD{}
-
-							return
-						}
+					if err := sendFunc(sMsgP); err != nil {
 						log.Errorf("Send to %s failed: %v", p, err)
-
-						return
 					}
 				}
 			}
