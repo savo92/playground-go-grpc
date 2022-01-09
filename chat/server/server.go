@@ -54,7 +54,6 @@ func NewServer(port int) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %w", err)
 	}
-
 	rm, err := newRoomManager()
 	if err != nil {
 		return nil, fmt.Errorf("newRoomManager failed: %w", err)

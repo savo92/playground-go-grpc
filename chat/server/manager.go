@@ -7,7 +7,7 @@ import (
 
 type roomManager struct {
 	rooms map[roomID]*room
-	mu    sync.RWMutex
+	mu    sync.Mutex
 
 	closed bool
 }

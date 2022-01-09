@@ -119,8 +119,8 @@ func (r *room) close() {
 		return
 	}
 	r.closed = true
-	r.closeC <- struct{}{}
 	r.rm.removeRoom(r.id)
+	r.closeC <- struct{}{}
 }
 
 func newRoom(name string) (*room, error) {
