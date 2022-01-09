@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"sync"
 
 	"github.com/looplab/fsm"
 	"google.golang.org/grpc"
@@ -20,8 +19,7 @@ type Server struct {
 	listener   net.Listener
 	gRPCServer *grpc.Server
 
-	rooms       map[roomID]*Room
-	roomsMU     sync.RWMutex
+	rm          *roomManager
 	defaultRoom roomID
 }
 
@@ -32,7 +30,7 @@ func (s *Server) Serve() error {
 func (s *Server) Shutdown(ctx context.Context) error {
 	gracefulShutdownSignal := make(chan struct{}, 1)
 	go func() {
-		// TODO here we should also kick handlers shutdown (channels? contexts?)
+		s.rm.close()
 		s.gRPCServer.GracefulStop()
 		close(gracefulShutdownSignal)
 	}()
@@ -57,22 +55,24 @@ func NewServer(port int) (*Server, error) {
 		return nil, fmt.Errorf("failed to listen: %w", err)
 	}
 
+	rm, err := newRoomManager()
+	if err != nil {
+		return nil, fmt.Errorf("newRoomManager failed: %w", err)
+	}
+
 	s := &Server{
 		listener:   listener,
 		gRPCServer: grpc.NewServer(),
-		rooms:      make(map[roomID]*Room),
+		rm:         rm,
 	}
 
 	pb.RegisterChatServer(s.gRPCServer, s)
 
-	r, err := NewRoom("default")
+	rID, err := rm.createRoom()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("createRoom failed: %w", err)
 	}
-	s.roomsMU.Lock()
-	s.rooms[r.ID] = r
-	s.defaultRoom = r.ID
-	s.roomsMU.Unlock()
+	s.defaultRoom = rID
 
 	return s, nil
 }

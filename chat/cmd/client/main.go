@@ -69,6 +69,7 @@ func run() error {
 			{Name: pb.ServerMessage_ConfirmRoomCheckout.String(), Src: []string{"pairing"}, Dst: "ready"},
 			{Name: pb.ServerMessage_ForwardMessage.String(), Src: []string{"ready"}, Dst: "receiving"},
 			{Name: "readyAgain", Src: []string{"receiving"}, Dst: "ready"},
+			{Name: pb.ServerMessage_Shutdown.String(), Src: []string{"booting", "pairing", "ready", "receiving"}, Dst: "closed"},
 		},
 		fsm.Callbacks{
 			"after_pair": func(e *fsm.Event) {
@@ -151,6 +152,24 @@ func run() error {
 					return
 				}
 				log.Printf("%s: %s", forwardMsg.Author, forwardMsg.Body)
+			},
+			fmt.Sprintf("after_%s", pb.ServerMessage_Shutdown.String()): func(e *fsm.Event) {
+				quitMsg := pb.ClientMessage_ClientQuit{}
+				op, err := pbutils.MarshalAny(&quitMsg)
+				if err != nil {
+					// TODO handle marshaller failure
+					return
+				}
+				cMsg := pb.ClientMessage{
+					Command:   pb.ClientMessage_Quit,
+					Operation: op,
+				}
+
+				if err := stream.Send(&cMsg); err != nil {
+					// TODO end send failure
+					return
+				}
+				sigint <- os.Interrupt
 			},
 		},
 	)

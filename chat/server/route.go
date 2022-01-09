@@ -1,10 +1,13 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"log"
+	"sync"
+	"time"
 
 	pbutils "github.com/golang/protobuf/ptypes"
 	"github.com/looplab/fsm"
@@ -12,8 +15,17 @@ import (
 	pb "github.com/savo92/playground-go-grpc/chat/pbuf"
 )
 
+type closeCMD struct {
+	delay bool
+}
+
 func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
-	var p *Participant
+	var p *participant
+
+	var wg sync.WaitGroup
+	closeChan := make(chan closeCMD)
+	ctx, cancelFunc := context.WithCancel(stream.Context())
+	defer cancelFunc()
 
 	sm := fsm.NewFSM(
 		"booting",
@@ -21,7 +33,7 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 			{Name: pb.ClientMessage_Helo.String(), Src: []string{"booting"}, Dst: "ready"},
 			{Name: pb.ClientMessage_WriteMessage.String(), Src: []string{"ready"}, Dst: "receiving"},
 			{Name: "readyAgain", Src: []string{"receiving"}, Dst: "ready"},
-			{Name: pb.ClientMessage_Quit.String(), Src: []string{"booting", "ready"}, Dst: "closed"},
+			{Name: pb.ClientMessage_Quit.String(), Src: []string{"booting", "ready", "receiving"}, Dst: "closed"},
 		},
 		fsm.Callbacks{
 			fmt.Sprintf("after_%s", pb.ClientMessage_Helo.String()): func(e *fsm.Event) {
@@ -40,18 +52,18 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 					return
 				}
 
-				p, err = NewParticipant(heloMsg.Author)
+				p, err = newParticipant(heloMsg.Author)
 				if err != nil {
 					log.Printf("participant creation failed: %v", err)
 					// TODO helo failed
 					return
 				}
-				if err := s.rooms[s.defaultRoom].AddParticipant(p); err != nil {
+				if err := s.rm.rooms[s.defaultRoom].addParticipant(p); err != nil {
 					log.Printf("room checkout failed: %v", err)
 					// TODO participant registration failed
 					return
 				}
-				p.currentRoom = s.rooms[s.defaultRoom]
+				p.currentRoom = s.rm.rooms[s.defaultRoom]
 
 				confirmRoomMsg := pb.ServerMessage_ServerConfirmRoomCheckout{}
 				op, err := pbutils.MarshalAny(&confirmRoomMsg)
@@ -65,18 +77,43 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 					Operation: op,
 				}
 
+				wg.Add(1)
 				go func() {
-					for sMsgP := range p.serverMessagesChannel {
-						messageHolder := sMsgP
-						if err := stream.Send(messageHolder); err != nil {
-							log.Printf("send failed: %v", err)
-
+					defer wg.Done()
+					for {
+						select {
+						case <-ctx.Done():
 							return
+						case <-p.disconnectChan:
+							shutdownMsg := pb.ServerMessage_ServerShutdown{}
+							op, err := pbutils.MarshalAny(&shutdownMsg)
+							if err != nil {
+								log.Printf("shutdown msg marshalling failed: %v", err)
+								// TODO shutdown marshalling failed
+								return
+							}
+							sMsg := pb.ServerMessage{
+								Command:   pb.ServerMessage_Shutdown,
+								Operation: op,
+							}
+							p.out <- &sMsg
+							closeChan <- closeCMD{delay: true}
+						case sMsgP := <-p.out:
+							if err := stream.Send(sMsgP); err != nil {
+								if errors.Is(err, io.EOF) {
+									closeChan <- closeCMD{}
+
+									return
+								}
+								log.Printf("send failed: %v", err)
+
+								return
+							}
 						}
 					}
 				}()
 
-				p.serverMessagesChannel <- &sMsg
+				p.out <- &sMsg
 			},
 			fmt.Sprintf("after_%s", pb.ClientMessage_WriteMessage.String()): func(e *fsm.Event) {
 				cMsgP, err := extractClientMsg(e)
@@ -86,30 +123,60 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 					return
 				}
 
-				p.currentRoom.incomingMessages <- cMsgP
+				p.currentRoom.in <- roomMessage{
+					cMsgP:       cMsgP,
+					participant: p,
+				}
+			},
+			fmt.Sprintf("after_%s", pb.ClientMessage_Quit.String()): func(e *fsm.Event) {
+				closeChan <- closeCMD{}
 			},
 		},
 	)
 
-	for {
-		cMsgP, err := stream.Recv()
-		if errors.Is(err, io.EOF) {
-			// TODO what do we do now?
-			return nil
-		}
-		if err != nil {
-			return err
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		cCMD := <-closeChan
+		close := func() {
+			cancelFunc()
 		}
 
-		log.Printf("Got %s", cMsgP.Command.String())
-
-		if err := sm.Event(cMsgP.Command.String(), cMsgP); err != nil {
-			log.Printf("failed to submit %s: %v", cMsgP.Command.String(), err)
+		if cCMD.delay {
+			t := time.NewTimer(5 * time.Second)
+			<-t.C
 		}
-		if sm.Current() == "receiving" {
-			if err := sm.Event("readyAgain"); err != nil {
-				log.Printf("failed to submit readyAgain: %v", err)
+		close()
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			cMsgP, err := stream.Recv()
+			if errors.Is(err, io.EOF) {
+				closeChan <- closeCMD{}
+
+				return
+			}
+			if err != nil {
+				return
+			}
+
+			log.Printf("Got %s", cMsgP.Command.String())
+
+			if err := sm.Event(cMsgP.Command.String(), cMsgP); err != nil {
+				log.Printf("failed to submit %s: %v", cMsgP.Command.String(), err)
+			}
+			if sm.Current() == "receiving" {
+				if err := sm.Event("readyAgain"); err != nil {
+					log.Printf("failed to submit readyAgain: %v", err)
+				}
 			}
 		}
-	}
+	}()
+
+	wg.Wait()
+
+	return nil
 }
