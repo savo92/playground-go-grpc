@@ -4,23 +4,16 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"html/template"
-	"io"
 	"os"
 	"os/signal"
 	"strings"
-	"sync"
 
-	pbutils "github.com/golang/protobuf/ptypes"
-	"github.com/looplab/fsm"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/savo92/playground-go-grpc/chat/client"
-	pb "github.com/savo92/playground-go-grpc/chat/pbuf"
-	utils "github.com/savo92/playground-go-grpc/chat/utils"
 )
 
 const (
@@ -56,13 +49,10 @@ func run() error {
 	}
 	defer teardownLog()
 
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Enter your name: ")
-	text, err := reader.ReadString('\n')
+	author, err := getAuthor()
 	if err != nil {
 		return err
 	}
-	author := strings.Replace(text, "\n", "", -1)
 
 	c, err := client.NewClient(*serverAddr)
 	if err != nil {
@@ -80,167 +70,16 @@ func run() error {
 			log.Errorf("Failed to CloseSend: %v", err)
 		}
 	}()
+
 	sigint := make(chan os.Signal, 1)
-
-	sm := fsm.NewFSM(
-		"booting",
-		fsm.Events{
-			{Name: "pair", Src: []string{"booting"}, Dst: "pairing"},
-			{Name: pb.ServerMessage_ConfirmRoomCheckout.String(), Src: []string{"pairing"}, Dst: "ready"},
-			{Name: pb.ServerMessage_ForwardMessage.String(), Src: []string{"ready"}, Dst: "receiving"},
-			{Name: "readyAgain", Src: []string{"receiving"}, Dst: "ready"},
-			{Name: pb.ServerMessage_Shutdown.String(), Src: []string{"booting", "pairing", "ready", "receiving"}, Dst: "closed"},
-		},
-		fsm.Callbacks{
-			"after_pair": func(e *fsm.Event) {
-				heloMsg := pb.ClientMessage_ClientHelo{
-					Author: author,
-				}
-				op, err := pbutils.MarshalAny(&heloMsg)
-				if err != nil {
-					log.Errorf("Marshal from helo failed: %v", err)
-					// TODO handle marshaller failure
-					return
-				}
-				cMsg := pb.ClientMessage{
-					Command:   pb.ClientMessage_Helo,
-					Operation: op,
-				}
-
-				if err := stream.Send(&cMsg); err != nil {
-					log.Errorf("Failed to send helo: %v", err)
-					// TODO end send failure
-					return
-				}
-			},
-			utils.AfterEvent(pb.ServerMessage_ConfirmRoomCheckout): func(e *fsm.Event) {
-				go func() {
-					reader := bufio.NewReader(os.Stdin)
-					for {
-						fmt.Print("-> ")
-						text, err := reader.ReadString('\n')
-						if err != nil {
-							log.Errorf("Failed to read from stdin: %v", err)
-
-							return
-						}
-						message := strings.Replace(text, "\n", "", -1)
-
-						switch message {
-						case "q":
-							return
-						case "":
-							// do not send empty messages.
-						default:
-							writeMsg := pb.ClientMessage_ClientWriteMessage{
-								Body: message,
-							}
-							op, err := pbutils.MarshalAny(&writeMsg)
-							if err != nil {
-								log.Errorf("Marshal from writeMsg failed: %v", err)
-								// TODO handle marshaller error
-								return
-							}
-							cMsg := pb.ClientMessage{
-								Command:   pb.ClientMessage_WriteMessage,
-								Operation: op,
-							}
-
-							if err := stream.Send(&cMsg); err != nil {
-								log.Errorf("Failed to send writeMsg: %v", err)
-								// TODO handle send error
-								return
-							}
-						}
-					}
-				}()
-			},
-			utils.AfterEvent(pb.ServerMessage_ForwardMessage): func(e *fsm.Event) {
-				sMsgP, err := extractServerMsg(e)
-				if err != nil {
-					log.Errorf("Cannot extract server msg: %v", err)
-
-					return
-				}
-				var forwardMsg pb.ServerMessage_ServerForwardMessage
-				if err := pbutils.UnmarshalAny(sMsgP.Operation, &forwardMsg); err != nil {
-					log.Errorf("Unmarshal to forwardMessage failed: %vv", err)
-					// TODO handler unmarshal errors
-					return
-				}
-
-				if forwardMsg.Author == author {
-					return
-				}
-				fmt.Printf("%s: %s\n", forwardMsg.Author, forwardMsg.Body)
-			},
-			utils.AfterEvent(pb.ServerMessage_Shutdown): func(e *fsm.Event) {
-				quitMsg := pb.ClientMessage_ClientQuit{}
-				op, err := pbutils.MarshalAny(&quitMsg)
-				if err != nil {
-					log.Errorf("Marshal from quitMsg failed: %v", err)
-					// TODO handle marshaller failure
-					return
-				}
-				cMsg := pb.ClientMessage{
-					Command:   pb.ClientMessage_Quit,
-					Operation: op,
-				}
-
-				if err := stream.Send(&cMsg); err != nil && !errors.Is(err, io.EOF) {
-					log.Errorf("Send failed: %v", err)
-					// TODO end send failure
-					return
-				}
-				sigint <- os.Interrupt
-			},
-		},
-	)
-
-	var wg sync.WaitGroup
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for {
-			sMsgP, err := stream.Recv()
-			if errors.Is(err, io.EOF) {
-				sigint <- os.Interrupt
-
-				return
-			}
-			if err != nil {
-				log.Errorf("Recv failed: %v", err)
-				// TODO handle recv error
-				return
-			}
-
-			cmd := sMsgP.Command.String()
-			log.Debugf("Got %s", cmd)
-			if err := sm.Event(cmd, sMsgP); err != nil {
-				log.Errorf("Failed to submit %s: %v", cmd, err)
-			}
-			if sm.Current() == "receiving" {
-				if err := sm.Event("readyAgain"); err != nil {
-					log.Errorf("Failed to submit readyAgain: %v", err)
-				}
-			}
-		}
-	}()
-
-	if err := sm.Event("pair"); err != nil {
-		return err
-	}
-
 	go func() {
 		signal.Notify(sigint, os.Interrupt)
 		<-sigint
+		// TODO send a Quit message
 		cancelFunc()
 	}()
 
-	wg.Wait()
-
-	return nil
+	return client.Run(author, stream, sigint)
 }
 
 func configureLog() (func(), error) {
@@ -286,14 +125,13 @@ func configureLog() (func(), error) {
 	}
 }
 
-func extractServerMsg(e *fsm.Event) (*pb.ServerMessage, error) {
-	if len(e.Args) == 0 {
-		return nil, fmt.Errorf("e.Args is empty")
-	}
-	sMsgP, ok := e.Args[0].(*pb.ServerMessage)
-	if !ok {
-		return nil, fmt.Errorf("type assertion to *pb.ServerMessage failed")
+func getAuthor() (string, error) {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print("Enter your name: ")
+	text, err := reader.ReadString('\n')
+	if err != nil {
+		return "", err
 	}
 
-	return sMsgP, nil
+	return strings.Replace(text, "\n", "", -1), nil
 }
