@@ -62,7 +62,7 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 		for {
 			cMsgP, err := stream.Recv()
 			if errors.As(err, &io.EOF) {
-				closeC <- closeCMD{}
+				closeC <- closeCMD{} // TODO is this blocking when the close comes from quitHandler?
 
 				return
 			}
