@@ -61,7 +61,7 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 		defer wg.Done()
 		for {
 			cMsgP, err := stream.Recv()
-			if errors.Is(err, io.EOF) {
+			if errors.As(err, &io.EOF) {
 				closeC <- closeCMD{}
 
 				return
