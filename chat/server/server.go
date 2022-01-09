@@ -69,7 +69,7 @@ func NewServer(port int) (*Server, error) {
 
 	rID, err := rm.createRoom()
 	if err != nil {
-		return nil, fmt.Errorf("createRoom failed: %w", err)
+		return nil, fmt.Errorf("default room creation failed: %w", err)
 	}
 	s.defaultRoom = rID
 

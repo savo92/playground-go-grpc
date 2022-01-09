@@ -60,17 +60,13 @@ func (r *room) consumeChan() {
 		},
 		fsm.Callbacks{
 			fmt.Sprintf("after_%s", pb.ClientMessage_WriteMessage.String()): func(e *fsm.Event) {
-				if len(e.Args) == 0 {
-					return //nil, fmt.Errorf("not enough Args")
+				rMsg, err := extractRoomMsg(e)
+				if err != nil {
+					return
 				}
-				rMsg, ok := e.Args[0].(roomMessage)
-				if !ok {
-					return //nil, fmt.Errorf("type assertion to *pb.ClientMessage failed")
-				}
-
 				var writeMsg pb.ClientMessage_ClientWriteMessage
 				if err := pbutils.UnmarshalAny(rMsg.cMsgP.Operation, &writeMsg); err != nil {
-					// TODO no helo no party
+					// TODO no writeMsg no party
 					return
 				}
 
@@ -101,6 +97,8 @@ func (r *room) consumeChan() {
 			for _, p := range copyParticipants(r) {
 				p.disconnect()
 			}
+
+			return
 		case rMsgP := <-r.in:
 			cmd := rMsgP.cMsgP.Command.String()
 			if err := sm.Event(cmd, rMsgP); err != nil {
@@ -148,4 +146,16 @@ func copyParticipants(r *room) []*participant {
 	}
 
 	return participants
+}
+
+func extractRoomMsg(e *fsm.Event) (roomMessage, error) {
+	if len(e.Args) == 0 {
+		return roomMessage{}, fmt.Errorf("not enough Args")
+	}
+	rMsg, ok := e.Args[0].(roomMessage)
+	if !ok {
+		return roomMessage{}, fmt.Errorf("type assertion to roomMessage failed")
+	}
+
+	return rMsg, nil
 }
