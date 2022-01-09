@@ -88,7 +88,3 @@ func extractClientMsg(e *fsm.Event) (*pb.ClientMessage, error) {
 
 	return cMsgP, nil
 }
-
-func afterEvent(cmd pb.ClientMessage_ClientCommand) string {
-	return fmt.Sprint("after_", cmd.String())
-}

@@ -11,8 +11,9 @@ import (
 	"github.com/looplab/fsm"
 	log "github.com/sirupsen/logrus"
 
-	internal "github.com/savo92/playground-go-grpc/chat/server/internal"
 	pb "github.com/savo92/playground-go-grpc/chat/pbuf"
+	internal "github.com/savo92/playground-go-grpc/chat/server/internal"
+	utils "github.com/savo92/playground-go-grpc/chat/utils"
 )
 
 type closeCMD struct {
@@ -36,7 +37,7 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 			{Name: pb.ClientMessage_Quit.String(), Src: []string{"booting", "ready", "receiving"}, Dst: "closed"},
 		},
 		fsm.Callbacks{
-			afterEvent(pb.ClientMessage_Helo): func(e *fsm.Event) {
+			utils.AfterEvent(pb.ClientMessage_Helo): func(e *fsm.Event) {
 				var err error
 				var cMsgP *pb.ClientMessage
 				cMsgP, err = extractClientMsg(e)
@@ -108,7 +109,7 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 
 									return
 								}
-								log.Errorf("Send to %s failed: %v", p.String(), err)
+								log.Errorf("Send to %s failed: %v", p, err)
 
 								return
 							}
@@ -118,7 +119,7 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 
 				p.Out <- &sMsg
 			},
-			afterEvent(pb.ClientMessage_WriteMessage): func(e *fsm.Event) {
+			utils.AfterEvent(pb.ClientMessage_WriteMessage): func(e *fsm.Event) {
 				cMsgP, err := extractClientMsg(e)
 				if err != nil {
 					log.Errorf("Cannot extract client msg: %v", err)
@@ -131,7 +132,7 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 					Participant: p,
 				}
 			},
-			afterEvent(pb.ClientMessage_Quit): func(e *fsm.Event) {
+			utils.AfterEvent(pb.ClientMessage_Quit): func(e *fsm.Event) {
 				closeChan <- closeCMD{}
 			},
 		},
@@ -166,10 +167,10 @@ func (s *Server) RouteChat(stream pb.Chat_RouteChatServer) error {
 				return
 			}
 
-			log.Debugf("Got %s", cMsgP.Command.String())
-
-			if err := sm.Event(cMsgP.Command.String(), cMsgP); err != nil {
-				log.Errorf("Failed to submit %s: %v", cMsgP.Command.String(), err)
+			cmd := cMsgP.Command.String()
+			log.Debugf("Got %s", cmd)
+			if err := sm.Event(cmd, cMsgP); err != nil {
+				log.Errorf("Failed to submit %s: %v", cmd, err)
 			}
 			if sm.Current() == "receiving" {
 				if err := sm.Event("readyAgain"); err != nil {

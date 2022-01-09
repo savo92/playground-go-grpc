@@ -20,6 +20,7 @@ import (
 
 	"github.com/savo92/playground-go-grpc/chat/client"
 	pb "github.com/savo92/playground-go-grpc/chat/pbuf"
+	utils "github.com/savo92/playground-go-grpc/chat/utils"
 )
 
 const (
@@ -112,7 +113,7 @@ func run() error {
 					return
 				}
 			},
-			afterEvent(pb.ServerMessage_ConfirmRoomCheckout): func(e *fsm.Event) {
+			utils.AfterEvent(pb.ServerMessage_ConfirmRoomCheckout): func(e *fsm.Event) {
 				go func() {
 					reader := bufio.NewReader(os.Stdin)
 					for {
@@ -154,7 +155,7 @@ func run() error {
 					}
 				}()
 			},
-			afterEvent(pb.ServerMessage_ForwardMessage): func(e *fsm.Event) {
+			utils.AfterEvent(pb.ServerMessage_ForwardMessage): func(e *fsm.Event) {
 				if len(e.Args) == 0 {
 					log.Errorf("e.Args is empty")
 					// TODO handle missing message
@@ -178,7 +179,7 @@ func run() error {
 				}
 				fmt.Printf("%s: %s\n", forwardMsg.Author, forwardMsg.Body)
 			},
-			afterEvent(pb.ServerMessage_Shutdown): func(e *fsm.Event) {
+			utils.AfterEvent(pb.ServerMessage_Shutdown): func(e *fsm.Event) {
 				quitMsg := pb.ClientMessage_ClientQuit{}
 				op, err := pbutils.MarshalAny(&quitMsg)
 				if err != nil {
@@ -215,10 +216,10 @@ func run() error {
 				return
 			}
 
-			log.Debugf("Got %s", sMsgP.Command.String())
-
-			if err := sm.Event(sMsgP.Command.String(), sMsgP); err != nil {
-				log.Errorf("Failed to submit %s: %v", sMsgP.Command.String(), err)
+			cmd := sMsgP.Command.String()
+			log.Debugf("Got %s", cmd)
+			if err := sm.Event(cmd, sMsgP); err != nil {
+				log.Errorf("Failed to submit %s: %v", cmd, err)
 			}
 			if sm.Current() == "receiving" {
 				if err := sm.Event("readyAgain"); err != nil {
@@ -284,8 +285,4 @@ func configureLog() (func(), error) {
 	default:
 		return nil, fmt.Errorf("invalid logDst %s", *logDst)
 	}
-}
-
-func afterEvent(cmd pb.ServerMessage_ServerCommand) string {
-	return fmt.Sprint("after_", cmd.String())
 }

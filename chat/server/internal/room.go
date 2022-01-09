@@ -10,6 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	pb "github.com/savo92/playground-go-grpc/chat/pbuf"
+	utils "github.com/savo92/playground-go-grpc/chat/utils"
 )
 
 type RoomID string
@@ -59,7 +60,7 @@ func (r *room) consumeChan() {
 			{Name: "readyAgain", Src: []string{"receiving"}, Dst: "idle"},
 		},
 		fsm.Callbacks{
-			afterEvent(pb.ClientMessage_WriteMessage): func(e *fsm.Event) {
+			utils.AfterEvent(pb.ClientMessage_WriteMessage): func(e *fsm.Event) {
 				rMsg, err := extractRoomMsg(e)
 				if err != nil {
 					return
@@ -158,9 +159,4 @@ func extractRoomMsg(e *fsm.Event) (RoomMessage, error) {
 	}
 
 	return rMsg, nil
-}
-
-
-func afterEvent(cmd pb.ClientMessage_ClientCommand) string {
-	return fmt.Sprint("after_", cmd.String())
 }
